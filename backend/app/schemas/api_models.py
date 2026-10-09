@@ -82,22 +82,52 @@ class ColumnMapping(BaseModel):
     custom_metadata_cols: List[str] = Field(default_factory=list)
 
 
+class ParsedRecordPreview(BaseModel):
+    row_number: int
+    company_name: Optional[str] = None
+    url: str
+    is_valid_url: bool
+    is_duplicate: bool
+    original_row: Dict[str, Any] = Field(default_factory=dict)
+
+
 class UploadPreviewResponse(BaseModel):
     filename: str
     temp_file_id: str
-    total_detected_rows: int
+    available_worksheets: List[str] = Field(default_factory=list)
+    selected_worksheet: str
     detected_columns: List[str]
+    column_letters: Dict[str, str] = Field(default_factory=dict)
     suggested_mapping: ColumnMapping
-    preview_rows: List[Dict[str, Any]]
-    duplicate_url_count: int
-    invalid_url_count: int
-    sample_warnings: List[str]
+    start_row: int = 2
+    end_row: int = 2
+    total_detected_rows: int
+    total_non_empty_urls: int = 0
+    duplicate_url_count: int = 0
+    invalid_url_count: int = 0
+    sample_warnings: List[str] = Field(default_factory=list)
+    preview_rows: List[Dict[str, Any]] = Field(default_factory=list)
+    preview_records: List[ParsedRecordPreview] = Field(default_factory=list)
+
+
+class SheetPreviewRequest(BaseModel):
+    temp_file_id: str
+    sheet_name: str
+    url_col: Optional[str] = None
+    company_name_col: Optional[str] = None
+    snov_result_col: Optional[str] = None
+    industry_col: Optional[str] = None
+    start_row: Optional[int] = None
+    end_row: Optional[int] = None
 
 
 class BatchStartRequest(BaseModel):
     project_id: str
     temp_file_id: str
     filename: str
+    sheet_name: Optional[str] = None
+    start_row: Optional[int] = 2
+    end_row: Optional[int] = None
     mapping: ColumnMapping
 
 
@@ -108,6 +138,10 @@ class BatchOut(BaseModel):
     id: str
     project_id: str
     filename: str
+    source_worksheet: Optional[str] = None
+    source_summary: Optional[str] = None
+    start_row: Optional[int] = None
+    end_row: Optional[int] = None
     total_rows: int
     processed_rows: int
     matched_rows: int
@@ -128,6 +162,8 @@ class ProjectRecordOut(BaseModel):
     id: str
     project_id: str
     batch_id: str
+    source_worksheet: Optional[str] = None
+    row_index: Optional[int] = None
     company_id: Optional[str] = None
     company_name: Optional[str] = None
     website_url: str

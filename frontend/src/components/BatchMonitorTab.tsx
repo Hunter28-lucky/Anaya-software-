@@ -105,6 +105,11 @@ export function BatchMonitorTab({ projectId, onNavigateToResults }: BatchMonitor
                     </div>
                     <div>
                       <h3 className="text-sm font-bold text-white">{b.filename}</h3>
+                      {b.source_summary && (
+                        <div className="text-xs text-cyan-300 font-semibold font-mono mt-0.5">
+                          {b.source_summary}
+                        </div>
+                      )}
                       <div className="text-xs text-slate-400 flex items-center gap-2 mt-0.5">
                         <span>Created {new Date(b.created_at).toLocaleString()}</span>
                         <span>•</span>

@@ -21,6 +21,8 @@ def prepare_export_records(records: List[Dict[str, Any]]) -> List[Dict[str, Any]
             row[f"Original_{k}"] = sanitize_formula_injection(v)
 
         # Standard qualification output columns
+        row["Source Worksheet"] = sanitize_formula_injection(r.get("source_worksheet", ""))
+        row["Source Row Index"] = r.get("row_index", "")
         row["Company Name"] = sanitize_formula_injection(r.get("company_name", ""))
         row["Website URL"] = sanitize_formula_injection(r.get("website_url", ""))
         row["Original Snov Result"] = sanitize_formula_injection(r.get("snov_result", ""))

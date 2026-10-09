@@ -95,15 +95,22 @@ export function EvidenceDrawer({ record, onClose, onRecordUpdated }: EvidenceDra
             <h2 className="text-xl font-bold text-white tracking-tight">
               {record.company_name || record.domain || "Company Record"}
             </h2>
-            <a
-              href={record.website_url}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 mt-1 font-mono"
-            >
-              <span>{record.website_url}</span>
-              <ExternalLink className="w-3 h-3" />
-            </a>
+            <div className="flex items-center gap-3 mt-1.5 flex-wrap">
+              <a
+                href={record.website_url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-cyan-400 hover:text-cyan-300 flex items-center gap-1 font-mono"
+              >
+                <span>{record.website_url}</span>
+                <ExternalLink className="w-3 h-3" />
+              </a>
+              {record.source_worksheet && (
+                <span className="px-2 py-0.5 rounded text-[10px] bg-slate-800 text-cyan-300 border border-slate-700 font-mono">
+                  Sheet: {record.source_worksheet} • Row #{record.row_index || "?"}
+                </span>
+              )}
+            </div>
           </div>
 
           <button

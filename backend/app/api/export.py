@@ -44,6 +44,8 @@ async def export_project_records(
 
         flattened.append({
             "original_data": src.original_data if src else {},
+            "source_worksheet": r.source_worksheet or (src.source_worksheet if src else ""),
+            "row_index": r.row_index or (src.row_index if src else ""),
             "company_name": src.raw_company_name if src else (comp.name if comp else ""),
             "website_url": src.raw_url if src else (comp.normalized_url if comp else ""),
             "snov_result": r.snov_result,

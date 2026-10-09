@@ -223,6 +223,8 @@ class BatchExecutionRunner:
                     batch_id=batch_id,
                     source_record_id=src.id,
                     company_id=company.id if company else None,
+                    source_worksheet=src.source_worksheet,
+                    row_index=src.row_index,
                     final_classification=decision["final_classification"],
                     automated_classification=decision["automated_classification"],
                     business_relevance=decision["business_relevance"],

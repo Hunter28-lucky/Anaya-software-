@@ -32,3 +32,18 @@ async def get_db() -> AsyncGenerator[AsyncSession, None]:
 async def init_db():
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+        # Migrate new columns on existing databases safely
+        from sqlalchemy import text
+        for stmt in [
+            "ALTER TABLE import_batches ADD COLUMN source_worksheet VARCHAR(255);",
+            "ALTER TABLE import_batches ADD COLUMN source_summary VARCHAR(512);",
+            "ALTER TABLE import_batches ADD COLUMN start_row INTEGER;",
+            "ALTER TABLE import_batches ADD COLUMN end_row INTEGER;",
+            "ALTER TABLE source_records ADD COLUMN source_worksheet VARCHAR(255);",
+            "ALTER TABLE project_records ADD COLUMN source_worksheet VARCHAR(255);",
+            "ALTER TABLE project_records ADD COLUMN row_index INTEGER;",
+        ]:
+            try:
+                await conn.execute(text(stmt))
+            except Exception:
+                pass

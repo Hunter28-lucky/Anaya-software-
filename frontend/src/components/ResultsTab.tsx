@@ -211,7 +211,14 @@ export function ResultsTab({
                     <div className="font-semibold text-white">
                       {r.company_name || r.domain || "Unknown"}
                     </div>
-                    <div className="text-[11px] text-slate-400 font-mono mt-0.5">{r.domain}</div>
+                    <div className="text-[11px] text-slate-400 font-mono mt-0.5 flex items-center gap-1.5 flex-wrap">
+                      <span>{r.domain}</span>
+                      {r.source_worksheet && (
+                        <span className="px-1.5 py-0.5 rounded text-[10px] bg-slate-800 text-cyan-300 font-sans border border-slate-700">
+                          {r.source_worksheet} • Row {r.row_index || "?"}
+                        </span>
+                      )}
+                    </div>
                   </td>
 
                   <td className="py-3 px-4">

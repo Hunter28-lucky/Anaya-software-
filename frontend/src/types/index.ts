@@ -33,22 +33,42 @@ export interface ColumnMapping {
   custom_metadata_cols?: string[];
 }
 
+export interface ParsedRecordPreview {
+  row_number: number;
+  company_name?: string;
+  url: string;
+  is_valid_url: boolean;
+  is_duplicate: boolean;
+  original_row: Record<string, any>;
+}
+
 export interface UploadPreviewResponse {
   filename: string;
   temp_file_id: string;
-  total_detected_rows: number;
+  available_worksheets: string[];
+  selected_worksheet: string;
   detected_columns: string[];
+  column_letters: Record<string, string>;
   suggested_mapping: ColumnMapping;
-  preview_rows: Record<string, any>[];
+  start_row: number;
+  end_row: number;
+  total_detected_rows: number;
+  total_non_empty_urls: number;
   duplicate_url_count: number;
   invalid_url_count: number;
   sample_warnings: string[];
+  preview_rows: Record<string, any>[];
+  preview_records: ParsedRecordPreview[];
 }
 
 export interface ImportBatch {
   id: string;
   project_id: string;
   filename: string;
+  source_worksheet?: string;
+  source_summary?: string;
+  start_row?: number;
+  end_row?: number;
   total_rows: number;
   processed_rows: number;
   matched_rows: number;
@@ -76,6 +96,8 @@ export interface ProjectRecord {
   id: string;
   project_id: string;
   batch_id: string;
+  source_worksheet?: string;
+  row_index?: number;
   company_id?: string;
   company_name?: string;
   website_url: string;

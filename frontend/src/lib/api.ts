@@ -79,9 +79,12 @@ export async function updateProjectRules(
   return res.json();
 }
 
-export async function uploadPreview(file: File): Promise<UploadPreviewResponse> {
+export async function uploadPreview(file: File, sheetName?: string): Promise<UploadPreviewResponse> {
   const formData = new FormData();
   formData.append("file", file);
+  if (sheetName) {
+    formData.append("sheet_name", sheetName);
+  }
 
   const res = await fetch(`${API_BASE}/api/imports/preview`, {
     method: "POST",
@@ -94,10 +97,35 @@ export async function uploadPreview(file: File): Promise<UploadPreviewResponse> 
   return res.json();
 }
 
+export async function previewSheet(payload: {
+  temp_file_id: string;
+  sheet_name: string;
+  url_col?: string;
+  company_name_col?: string;
+  snov_result_col?: string;
+  industry_col?: string;
+  start_row?: number;
+  end_row?: number;
+}): Promise<UploadPreviewResponse> {
+  const res = await fetch(`${API_BASE}/api/imports/preview-sheet`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!res.ok) {
+    const err = await res.json().catch(() => ({ detail: "Failed to preview worksheet" }));
+    throw new Error(err.detail || "Failed to preview worksheet");
+  }
+  return res.json();
+}
+
 export async function startBatch(payload: {
   project_id: string;
   temp_file_id: string;
   filename: string;
+  sheet_name?: string;
+  start_row?: number;
+  end_row?: number;
   mapping: ColumnMapping;
 }): Promise<ImportBatch> {
   const res = await fetch(`${API_BASE}/api/imports/start-batch`, {

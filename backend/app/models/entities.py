@@ -84,6 +84,10 @@ class ImportBatch(Base):
     unverifiable_rows = Column(Integer, default=0)
     failed_rows = Column(Integer, default=0)
     status = Column(String(50), default="QUEUED", index=True)  # QUEUED, PROCESSING, COMPLETED, PAUSED, CANCELLED, FAILED
+    source_worksheet = Column(String(255), nullable=True)
+    source_summary = Column(String(512), nullable=True)
+    start_row = Column(Integer, nullable=True)
+    end_row = Column(Integer, nullable=True)
     column_mapping = Column(JSON, default=dict)
     error_message = Column(Text, nullable=True)
     created_at = Column(DateTime, default=datetime.utcnow)
@@ -114,6 +118,7 @@ class SourceRecord(Base):
 
     id = Column(String(36), primary_key=True, default=generate_uuid)
     batch_id = Column(String(36), ForeignKey("import_batches.id"), nullable=False, index=True)
+    source_worksheet = Column(String(255), nullable=True)
     row_index = Column(Integer, nullable=False)
     original_data = Column(JSON, default=dict)
     raw_company_name = Column(String(255), nullable=True)
@@ -134,6 +139,8 @@ class ProjectRecord(Base):
     batch_id = Column(String(36), ForeignKey("import_batches.id"), nullable=False, index=True)
     source_record_id = Column(String(36), ForeignKey("source_records.id"), nullable=False, index=True)
     company_id = Column(String(36), ForeignKey("companies.id"), nullable=True, index=True)
+    source_worksheet = Column(String(255), nullable=True)
+    row_index = Column(Integer, nullable=True)
 
     # Classification & Decision
     # MATCH, PARTIAL_MATCH, NOT_A_MATCH, NEEDS_REVIEW, UNVERIFIABLE, PENDING
