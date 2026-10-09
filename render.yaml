@@ -1,19 +1,16 @@
 services:
   # ============================================================================
-  # 1. LeadQualify AI - FastAPI Python Backend Service
+  # LeadQualify AI - Unified Enterprise Platform (FastAPI Backend + Next.js UI)
+  # Deploys as a single Web Service on Render Free Tier in 1 click
   # ============================================================================
   - type: web
-    name: leadqualify-backend
-    runtime: python
+    name: leadqualify-ai
+    runtime: docker
     region: oregon
     plan: free
-    rootDir: backend
-    buildCommand: pip install --upgrade pip && pip install -r requirements.txt
-    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    dockerfilePath: Dockerfile
     healthCheckPath: /api/health
     envVars:
-      - key: PYTHON_VERSION
-        value: 3.10.13
       - key: OPENROUTER_API_KEY
         sync: false
       - key: OPENROUTER_MODEL
@@ -22,24 +19,3 @@ services:
         value: sqlite+aiosqlite:///./leadqualify.db
       - key: SECRET_KEY
         generateValue: true
-
-  # ============================================================================
-  # 2. LeadQualify AI - Next.js Enterprise Dashboard Frontend
-  # ============================================================================
-  - type: web
-    name: leadqualify-frontend
-    runtime: node
-    region: oregon
-    plan: free
-    rootDir: frontend
-    buildCommand: npm install && npm run build
-    startCommand: npm start
-    healthCheckPath: /
-    envVars:
-      - key: NODE_VERSION
-        value: 20.11.0
-      - key: NEXT_PUBLIC_API_URL
-        fromService:
-          type: web
-          name: leadqualify-backend
-          property: host

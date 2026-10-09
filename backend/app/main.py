@@ -68,9 +68,14 @@ async def health_check():
 
 # Optional: Mount static frontend if exported for unified single-service hosting
 import os
-root_dir = os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
-frontend_dist = os.path.join(root_dir, "frontend", "out")
-if os.path.exists(frontend_dist) and os.path.isdir(frontend_dist):
+candidate_dirs = [
+    os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(os.path.abspath(__file__)))), "frontend", "out"),
+    os.path.join(os.getcwd(), "frontend", "out"),
+    "/app/frontend/out",
+    "frontend/out",
+]
+frontend_dist = next((p for p in candidate_dirs if os.path.isdir(p)), None)
+if frontend_dist:
     from fastapi.staticfiles import StaticFiles
     app.mount("/", StaticFiles(directory=frontend_dist, html=True), name="frontend_static")
 

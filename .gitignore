@@ -2,6 +2,8 @@
 .env
 .env.*
 !.env.example
+!backend/.env.example
+!frontend/.env.example
 backend/.env
 frontend/.env
 frontend/.env.local
@@ -19,17 +21,10 @@ env/
 venv/
 ENV/
 build/
-develop-eggs/
 dist/
 downloads/
 eggs/
 .eggs/
-lib/
-lib64/
-parts/
-sdist/
-var/
-wheels/
 *.egg-info/
 .installed.cfg
 *.egg
@@ -52,7 +47,10 @@ frontend/.next/
 out/
 frontend/out/
 *.tsbuildinfo
-next-env.d.ts
+
+# Ensure frontend source code is never ignored
+!frontend/src/
+!frontend/src/**
 
 # Logs
 *.log
