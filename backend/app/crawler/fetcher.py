@@ -170,7 +170,9 @@ class CustomWebsiteCrawler:
 
     async def crawl_site(self, raw_start_url: str) -> CrawlResult:
         """
-        Executes a targeted crawl on the given company website.
+        Executes a targeted, high-speed crawl on the given company website.
+        Fetches homepage first, discovers top commercial links,
+        and fetches up to 2 high-value subpages in parallel.
         """
         clean_url = normalize_url(raw_start_url)
         domain = normalize_domain(clean_url)
@@ -184,111 +186,107 @@ class CustomWebsiteCrawler:
             result.failure_reason = f"SSRF Guard: {e}"
             return result
 
-        discovered_urls: Set[str] = {start_url}
-        visited_urls: Set[str] = set()
-        queue: List[str] = [start_url]
-
-        async with httpx.AsyncClient(verify=True, limits=httpx.Limits(max_connections=5)) as client:
-            # Step 1: Optional Sitemap Discovery
-            try:
-                sitemap_url = f"https://{domain}/sitemap.xml"
-                s_resp, _ = await self._safe_fetch_page(client, sitemap_url)
-                if s_resp and s_resp.status_code == 200:
-                    sitemap_links = parse_sitemap_urls(s_resp.text, start_url, max_urls=20)
-                    for sl in sitemap_links:
-                        if sl not in discovered_urls:
-                            discovered_urls.add(sl)
-                            queue.append(sl)
-            except Exception as e:
-                logger.debug(f"Sitemap check error: {e}")
-
-            # Step 2: Crawl high-priority pages in queue up to self.max_pages
-            while queue and len(result.pages) < self.max_pages:
-                curr_url = queue.pop(0)
-                if curr_url in visited_urls:
-                    continue
-                visited_urls.add(curr_url)
-
-                # Polite delay
-                await asyncio.sleep(settings.CRAWLER_PER_DOMAIN_DELAY)
-
-                resp, error = await self._safe_fetch_page(client, curr_url)
-                if error:
-                    page = FetchedPage(
-                        url=curr_url,
-                        page_type=classify_page_type(curr_url),
-                        error_reason=error,
-                        is_success=False,
-                    )
-                    result.pages_failed += 1
-                    result.pages.append(page)
-                    continue
-
-                if not resp or resp.status_code >= 400:
-                    page = FetchedPage(
-                        url=curr_url,
-                        page_type=classify_page_type(curr_url),
-                        http_status=resp.status_code if resp else None,
-                        error_reason=f"HTTP {resp.status_code}" if resp else "Empty response",
-                        is_success=False,
-                    )
-                    result.pages_failed += 1
-                    result.pages.append(page)
-                    continue
-
-                html_text = resp.text
-                content_hash = hashlib.sha256(html_text.encode("utf-8")).hexdigest()
-
-                # Parse basic meta
-                soup = BeautifulSoup(html_text, "html.parser")
-                title_tag = soup.find("title")
-                title = title_tag.get_text(strip=True) if title_tag else ""
-                p_type = classify_page_type(curr_url, title)
-
+        async with httpx.AsyncClient(verify=True, limits=httpx.Limits(max_connections=10)) as client:
+            # 1. Fetch Homepage
+            resp, error = await self._safe_fetch_page(client, start_url)
+            if error or not resp or resp.status_code >= 400:
+                err_msg = error or (f"HTTP {resp.status_code}" if resp else "Empty response")
                 page = FetchedPage(
-                    url=curr_url,
-                    page_type=p_type,
-                    page_title=title[:500],
-                    http_status=resp.status_code,
-                    content_hash=content_hash,
-                    raw_html=html_text,
-                    is_success=True,
+                    url=start_url,
+                    page_type="HOMEPAGE",
+                    http_status=resp.status_code if resp else None,
+                    error_reason=err_msg,
+                    is_success=False,
                 )
-                result.pages_fetched += 1
+                result.pages_failed += 1
                 result.pages.append(page)
+                result.status = "BLOCKED" if "robots.txt" in err_msg.lower() else "FAILED"
+                result.failure_reason = err_msg
+                result.crawl_coverage = "FAILED"
+                return result
 
-                # Discover more internal links from successful page
-                if len(result.pages) < self.max_pages:
-                    discovered = extract_internal_links(curr_url, html_text, max_links=25)
-                    for next_url, _ in discovered:
-                        if next_url not in discovered_urls:
-                            discovered_urls.add(next_url)
-                            queue.append(next_url)
+            # Parse Homepage
+            html_text = resp.text
+            content_hash = hashlib.sha256(html_text.encode("utf-8")).hexdigest()
+            soup = BeautifulSoup(html_text, "html.parser")
+            title_tag = soup.find("title")
+            title = title_tag.get_text(strip=True) if title_tag else ""
 
-        result.pages_discovered = len(discovered_urls)
+            home_page = FetchedPage(
+                url=start_url,
+                page_type="HOMEPAGE",
+                page_title=title[:500],
+                http_status=resp.status_code,
+                content_hash=content_hash,
+                raw_html=html_text,
+                is_success=True,
+            )
+            result.pages_fetched += 1
+            result.pages.append(home_page)
 
-        # Determine overall crawl status
+            # 2. Extract and Prioritize Subpages
+            discovered = extract_internal_links(start_url, html_text, max_links=30)
+            result.pages_discovered = 1 + len(discovered)
+
+            # Sort discovered links by business value
+            priority_subpages = []
+            for next_url, priority_score in discovered:
+                p_type = classify_page_type(next_url)
+                if p_type in ("SERVICES", "INTERNATIONAL_PROGRAM", "ABOUT", "TEAM"):
+                    priority_subpages.append((priority_score + 10, next_url))
+                elif p_type != "BLOG":
+                    priority_subpages.append((priority_score, next_url))
+
+            priority_subpages.sort(key=lambda x: x[0], reverse=True)
+            max_subpages = max(1, self.max_pages - 1)
+            candidate_urls = [u for _, u in priority_subpages[:max_subpages]]
+
+            # 3. Parallel Fetch Subpages
+            if candidate_urls:
+                async def fetch_one_subpage(target_u: str):
+                    s_resp, s_err = await self._safe_fetch_page(client, target_u)
+                    if s_err or not s_resp or s_resp.status_code >= 400:
+                        return FetchedPage(
+                            url=target_u,
+                            page_type=classify_page_type(target_u),
+                            http_status=s_resp.status_code if s_resp else None,
+                            error_reason=s_err or (f"HTTP {s_resp.status_code}" if s_resp else "Error"),
+                            is_success=False,
+                        )
+                    s_html = s_resp.text
+                    s_hash = hashlib.sha256(s_html.encode("utf-8")).hexdigest()
+                    s_soup = BeautifulSoup(s_html, "html.parser")
+                    s_title_tag = s_soup.find("title")
+                    s_title = s_title_tag.get_text(strip=True) if s_title_tag else ""
+                    return FetchedPage(
+                        url=target_u,
+                        page_type=classify_page_type(target_u, s_title),
+                        page_title=s_title[:500],
+                        http_status=s_resp.status_code,
+                        content_hash=s_hash,
+                        raw_html=s_html,
+                        is_success=True,
+                    )
+
+                subpage_results = await asyncio.gather(*(fetch_one_subpage(u) for u in candidate_urls), return_exceptions=True)
+                for sp in subpage_results:
+                    if isinstance(sp, FetchedPage):
+                        if sp.is_success:
+                            result.pages_fetched += 1
+                        else:
+                            result.pages_failed += 1
+                        result.pages.append(sp)
+
+        # 4. Final status
         successful_pages = [p for p in result.pages if p.is_success]
         if not successful_pages:
-            if any("robots.txt" in (p.error_reason or "") for p in result.pages):
-                result.status = "BLOCKED"
-                result.failure_reason = "Blocked by website robots.txt or access policy"
-            else:
-                result.status = "FAILED"
-                result.failure_reason = "No pages could be fetched successfully"
+            result.status = "FAILED"
             result.crawl_coverage = "FAILED"
-        elif len(successful_pages) == 1 and result.pages_discovered > 1:
-            result.status = "PARTIAL"
-            result.crawl_coverage = "SHALLOW"
-        elif len(successful_pages) >= 2:
-            if result.pages_failed == 0 and len(queue) == 0:
-                result.status = "COMPLETED"
-                result.crawl_coverage = "FULL"
-            else:
-                result.status = "PARTIAL"
-                result.crawl_coverage = "PARTIAL"
-        else:
+        elif len(successful_pages) == 1:
             result.status = "COMPLETED"
             result.crawl_coverage = "SHALLOW"
+        else:
+            result.status = "COMPLETED"
+            result.crawl_coverage = "FULL"
 
         return result

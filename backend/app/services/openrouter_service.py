@@ -157,7 +157,7 @@ class OpenRouterClient:
         }
 
         start_time = time.time()
-        async with httpx.AsyncClient(timeout=45.0) as client:
+        async with httpx.AsyncClient(timeout=8.0) as client:
             resp = await client.post(
                 f"{self.base_url}/chat/completions",
                 json=payload,
@@ -173,9 +173,29 @@ class OpenRouterClient:
         if not choices:
             raise ValueError("OpenRouter returned empty choices list")
 
-        raw_content = choices[0]["message"]["content"]
-        # Parse JSON
-        parsed_dict = json.loads(raw_content)
+        raw_content = choices[0]["message"].get("content") or ""
+        if not raw_content.strip():
+            raise ValueError("OpenRouter returned empty message content")
+
+        # Robust JSON extraction: Strip markdown fences and extract balanced JSON { ... }
+        import re
+        cleaned = re.sub(r"^```(?:json)?\s*", "", raw_content.strip(), flags=re.MULTILINE)
+        cleaned = re.sub(r"\s*```$", "", cleaned.strip(), flags=re.MULTILINE)
+
+        match = re.search(r"\{[\s\S]*\}", cleaned)
+        json_str = match.group(0) if match else cleaned
+
+        parsed_dict = json.loads(json_str)
+
+        # Enforce 100% binary decision (No NEEDS_REVIEW)
+        raw_class = str(parsed_dict.get("classification", "")).upper()
+        if raw_class in ("MATCH", "CONFIRMED", "QUALIFIED", "YES", "TRUE"):
+            parsed_dict["classification"] = "MATCH"
+        else:
+            parsed_dict["classification"] = "NOT_A_MATCH"
+
+        parsed_dict["review_required"] = False
+
         validated_obj = AIClassificationResponse.model_validate(parsed_dict)
 
         return validated_obj, data, latency_ms

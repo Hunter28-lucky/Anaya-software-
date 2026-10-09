@@ -151,17 +151,23 @@ export function ResultsTab({
             <Filter className="w-3.5 h-3.5 text-slate-500" />
             Status:
           </span>
-          {["ALL", "MATCH", "PARTIAL_MATCH", "NOT_A_MATCH", "NEEDS_REVIEW", "UNVERIFIABLE"].map((s) => (
+          {[
+            { id: "ALL", label: "ALL" },
+            { id: "MATCH", label: "CONFIRMED (MATCH)" },
+            { id: "NOT_A_MATCH", label: "NOT A MATCH" },
+            { id: "UNVERIFIABLE", label: "UNVERIFIABLE" },
+            { id: "NEEDS_REVIEW", label: "NEEDS REVIEW" },
+          ].map((item) => (
             <button
-              key={s}
-              onClick={() => setStatusFilter(s)}
+              key={item.id}
+              onClick={() => setStatusFilter(item.id)}
               className={`px-2.5 py-1 rounded-lg text-xs font-medium transition-colors ${
-                statusFilter === s
+                statusFilter === item.id
                   ? "bg-cyan-500 text-slate-950 font-bold"
                   : "bg-slate-950 text-slate-400 hover:text-slate-200 hover:bg-slate-850 border border-slate-800"
               }`}
             >
-              {s.replace("_", " ")}
+              {item.label}
             </button>
           ))}
 

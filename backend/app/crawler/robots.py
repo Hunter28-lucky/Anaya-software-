@@ -25,7 +25,7 @@ class RobotsValidator:
 
             robots_url = f"{parsed.scheme}://{parsed.netloc}/robots.txt"
             try:
-                resp = await client.get(robots_url, timeout=5.0)
+                resp = await client.get(robots_url, timeout=2.0)
                 if resp.status_code == 200 and resp.text:
                     rp = RobotFileParser()
                     rp.parse(resp.text.splitlines())

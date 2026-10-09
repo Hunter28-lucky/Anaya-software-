@@ -173,15 +173,21 @@ export function BatchMonitorTab({ projectId, onNavigateToResults }: BatchMonitor
                 </div>
 
                 {/* Progress Bar & Counters */}
-                <div>
-                  <div className="flex items-center justify-between text-xs text-slate-400 mb-1.5">
+                  <div className="flex flex-col sm:flex-row sm:items-center justify-between text-xs text-slate-400 mb-1.5 gap-2">
                     <span>
                       Progress: <strong className="text-white">{b.processed_rows}</strong> of{" "}
                       <strong className="text-white">{b.total_rows}</strong> rows ({pct}%)
                     </span>
-                    <span>
-                      MATCH: {b.matched_rows} | PARTIAL: {b.partial_rows} | NOT A MATCH: {b.rejected_rows} |
-                      REVIEW: {b.review_rows}
+                    <span className="flex items-center gap-2 flex-wrap">
+                      <span className="text-emerald-400 font-semibold bg-emerald-950/40 px-2 py-0.5 rounded border border-emerald-800/40">
+                        CONFIRMED: {b.matched_rows}
+                      </span>
+                      <span className="text-rose-400 font-semibold bg-rose-950/40 px-2 py-0.5 rounded border border-rose-800/40">
+                        REJECTED: {b.rejected_rows}
+                      </span>
+                      <span className="text-slate-400 bg-slate-800/50 px-2 py-0.5 rounded border border-slate-700/50">
+                        UNVERIFIABLE: {b.unverifiable_rows}
+                      </span>
                     </span>
                   </div>
                   <div className="w-full h-2 rounded-full bg-slate-800 overflow-hidden">
@@ -193,7 +199,6 @@ export function BatchMonitorTab({ projectId, onNavigateToResults }: BatchMonitor
                     />
                   </div>
                 </div>
-              </div>
             );
           })}
         </div>

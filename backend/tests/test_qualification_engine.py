@@ -180,6 +180,112 @@ def test_hallucinated_citation_url_flags_review():
         snov_result_raw="Qualified"
     )
 
-    assert decision["final_classification"] == "NEEDS_REVIEW"
+    assert decision["final_classification"] == "NOT_A_MATCH"
     assert len(decision["valid_supporting_evidence"]) == 0
     assert any("not present in fetched crawl records" in lim for lim in decision["limitations"])
+
+
+def test_strict_binary_confirmation_placidway_matches():
+    """Proves PlacidWay content classifies as MATCH with high confidence and citations."""
+    crawl_res = CrawlResult(
+        domain="placidway.com",
+        starting_url="https://www.placidway.com",
+        status="COMPLETED",
+        pages=[
+            FetchedPage(
+                url="https://www.placidway.com",
+                page_type="HOMEPAGE",
+                page_title="PlacidWay Medical Tourism | Affordable Surgery Overseas",
+                clean_text="PlacidWay connects international patients with accredited hospitals worldwide for medical travel and surgery abroad.",
+                is_success=True,
+            )
+        ]
+    )
+
+    decision = QualificationDecisionEngine.evaluate(
+        ai_resp=None,  # Tests semantic content analyzer
+        crawl_result=crawl_res,
+        rule=get_sample_rule(),
+        snov_result_raw="Health, Wellness & Fitness"
+    )
+
+    assert decision["final_classification"] == "MATCH"
+    assert decision["final_classification"] != "NEEDS_REVIEW"
+    assert decision["confidence"] >= 0.85
+    assert len(decision["valid_supporting_evidence"]) > 0
+
+
+def test_strict_binary_confirmation_qresorts_rejected():
+    """Proves resort/hotel like qresorts.in is decisively classified as NOT_A_MATCH."""
+    crawl_res = CrawlResult(
+        domain="qresorts.in",
+        starting_url="https://qresorts.in",
+        status="COMPLETED",
+        pages=[
+            FetchedPage(
+                url="https://qresorts.in",
+                page_type="HOMEPAGE",
+                page_title="Luxury Beach Resort & Convention Centre",
+                clean_text="Welcome to our luxury beach resort. Suites & rooms, banquet hall, swimming pool, and dining.",
+                is_success=True,
+            )
+        ]
+    )
+
+    decision = QualificationDecisionEngine.evaluate(
+        ai_resp=None,
+        crawl_result=crawl_res,
+        rule=get_sample_rule(),
+        snov_result_raw="Hospitality"
+    )
+
+    assert decision["final_classification"] == "NOT_A_MATCH"
+    assert decision["final_classification"] != "NEEDS_REVIEW"
+    assert "Hospitality" in decision["decision_reason"] or "hospitality" in decision["decision_reason"].lower()
+
+
+def test_ambiguous_ai_response_enforced_to_binary():
+    """Proves when AI attempts to return NEEDS_REVIEW, engine forces a decisive binary decision."""
+    crawl_res = CrawlResult(
+        domain="example.com",
+        starting_url="https://example.com",
+        status="COMPLETED",
+        pages=[
+            FetchedPage(
+                url="https://example.com",
+                page_type="HOMEPAGE",
+                clean_text="General company offering miscellaneous services.",
+                is_success=True,
+            )
+        ]
+    )
+
+    ai_resp = AIClassificationResponse(
+        company_name="Ambiguous Co",
+        website_url="https://example.com",
+        core_business_summary="Some business",
+        primary_services=[],
+        customer_types=[],
+        target_category="Medical Tourism",
+        business_relevance="UNKNOWN",
+        classification="NEEDS_REVIEW",  # Model attempted to return NEEDS_REVIEW!
+        confidence=0.50,
+        evidence_quality="LOW",
+        supporting_evidence=[],
+        contradictory_evidence=[],
+        reason="Unclear",
+        review_required=True,
+    )
+
+    decision = QualificationDecisionEngine.evaluate(
+        ai_resp=ai_resp,
+        crawl_result=crawl_res,
+        rule=get_sample_rule(),
+        snov_result_raw=None
+    )
+
+    # Must be decisively binary: NOT_A_MATCH (never NEEDS_REVIEW!)
+    assert decision["final_classification"] in ("MATCH", "NOT_A_MATCH")
+    assert decision["final_classification"] != "NEEDS_REVIEW"
+    assert decision["final_classification"] == "NOT_A_MATCH"
+
